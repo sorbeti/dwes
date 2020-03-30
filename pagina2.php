@@ -52,7 +52,7 @@
     $partidas = BD::obtieneEquipos($idJuego); 
     // si no hay muestra mensaje
     if ($partidas==''){
-        $smarty->assign('mijuego',"este juego no tiene partidas");
+        $smarty->assign('mijuego',"juego no seleccionado o no tiene partidas");
     }else{
         $smarty->assign('mijuego', $mijuego);
     }
