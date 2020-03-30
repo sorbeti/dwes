@@ -19,8 +19,44 @@ class BD {
         if (isset($dwes)) $resultado = $dwes->query($sql);
         return $resultado;
     }
+    
+    public static function verificaCliente($nombre, $contrasenya) {
+        $sql = "SELECT username FROM usuarios ";
+        $sql .= "WHERE username='$nombre' ";
+        $sql .= "AND contrasenya='" . ($contrasenya) . "';";
+        $resultado = self::ejecutaConsulta($sql);
+        $verificado = false;
 
-    // Método para mostrar juegos en la página 1
+        if(isset($resultado)) {
+            $fila = $resultado->fetch();
+            if($fila !== false) $verificado=true;
+        }
+        return $verificado;
+    }
+    
+    
+    protected static function insertaRegistro($sql) {
+        $opc = array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8");
+        $dsn = "mysql:host=localhost;dbname=CrimeBook";
+        $usuario = 'ivantapia01';
+        $contrasena = '1234abcd';
+        $dwes = new PDO($dsn, $usuario, $contrasena, $opc);
+        $resultado = true;
+        $dwes->beginTransaction();         
+     
+        if ($dwes->exec($sql) != true) $resultado = false;
+        if ($resultado == true) {
+            $dwes->commit();           
+        } else {
+            $dwes->rollback();            
+        } 
+
+        return $resultado;   
+
+    }
+
+    
+    // Método para mostrar juegos en la pagina1
     public static function obtieneJuegos(){
         $sql ="SELECT id, nombre, descBreve, sum(num_pru) as num_pru, username";
         $sql.=" FROM (";
@@ -47,18 +83,88 @@ class BD {
         return $juegos;
     }
     
-    // Método para mostrar juegos en la pantalla 1 (hay que adaptar consulta para que tammbién muestre juegos sin pruebas)
+    
+    // Método para eliminar juegos en pagina1. Elimina también las partidas de ese juego y las pertenencias
+    public static function eliminaJuegos($codigo){
+        foreach ($codigo as $juego) {
+            $sql = "DELETE FROM juegos ";
+            $sql.=" WHERE juegos.id='" . $juego . "'";
+            $resultado = self::ejecutaConsulta ($sql);
+        
+            if(isset($resultado)) {
+                $row = $resultado->fetch();
+            }
+        }
+        
+        return $row;
+    }
+    
+    /* ¿Este lo has sustituido no Iñaki?
+    // Método para mostrar partidas en la pagina2
+    public static function muestraPartidas($i){
+        $sql = "SELECT id, nombre, fechaCreacion, duracion, fechaInicio, idJuego, username, finalizada FROM partidas WHERE idjuego='".$i."'";
+        $resultado = self::ejecutaConsulta($sql);
+        $partidas = array();
+
+	if($resultado) {
+            // Añadimos un elemento por cada producto obtenido
+            $row = $resultado->fetch();
+            while ($row != null) {
+                $partidas[] = new Partida($row);
+                $row = $resultado->fetch();
+            }
+	}
+        
+        return $partidas;      
+    }*/
+    
+    
+    // Método para mostrar nombre juego en la pagina2
     public static function nombrejuego($id){
         $sql = "SELECT nombre FROM juegos WHERE id='".$id."'";
         $minombre = self::ejecutaConsulta($sql);
-        if($minombre) {            // Añadimos un elemento por cada producto obtenido
+        if($minombre) { 
             $row = $minombre->fetch();                                  
 	}
         
         return $row['nombre'];
     }
     
-public static function obtieneResolucion($idEquipo){
+    
+    //metodo para eliminar una partida finalizada en página2
+    public static function eliminaPartida($codigo){
+        $sql = "DELETE FROM partidas ";
+        $sql.=" WHERE partidas.id='" . $codigo . "'";
+        $sql.=" AND partidas.finalizada='S'";
+        $resultado = self::ejecutaConsulta ($sql);
+        
+        if(isset($resultado)) {
+            $row = $resultado->fetch();
+        }
+    }
+    
+    // Método para obtener el número de equipos que han jugado una partida
+    public static function obtieneEquipos($idjuego) {
+        $sql = "SELECT partidas.id, count(equipos.id) as 'num_equipospartida', ";
+        $sql.= "partidas.nombre, partidas.fechaCreacion, partidas.duracion, partidas.fechaInicio, partidas.idJuego, partidas.username, partidas.finalizada ";
+        $sql.= " FROM partidas LEFT JOIN equipos";
+        $sql.=" ON partidas.id = equipos.idPartida";
+        $sql.=" WHERE partidas.idJuego='".$idjuego."' GROUP BY partidas.id";
+        $resultado = self::ejecutaConsulta($sql);
+
+	if($resultado) {
+            $row = $resultado->fetch();
+            while ($row != null) {
+                $num_equipos[] = new Partida($row);
+                $row = $resultado->fetch();
+            }
+	}
+        
+        return $num_equipos;
+    }
+    
+    
+    public static function obtieneResolucion($idEquipo){
         $sql = "SELECT idPrueba, idEquipo, resuelta, intentos from resoluciones";
         $sql.=" WHERE idEquipo='" . $idEquipo . "'";
     
@@ -79,7 +185,7 @@ public static function obtieneResolucion($idEquipo){
     
     
 
-public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
+    public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
    
    
         $opc = array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8");
@@ -97,7 +203,7 @@ public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
     $resultado->bindParam(':intentos',$_POST['intentos']);
     $resul =$resultado->execute();
 
-}
+    }
     
     //metodo para duplicar pruebas en la pagina 3
     public static function eliminaPrueba(){
@@ -109,12 +215,14 @@ public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
         return $pruebas;
     }
     
+    
     //metodo para metodo para actualizar tiempo en la pagina 4
     public static function actualizaTiempo(){
         $sql ="UPDATE partidas SET duracion='".$_POST['celdatiempo']."' WHERE id='".$_SESSION['partidapag4']."'";
         $resultado = self::ejecutaConsulta ($sql);
         return $pruebas;
     }
+    
     
     //metodo para crear equipo en la pagina 4
     public static function creaEquipo(){
@@ -152,6 +260,7 @@ public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
         return $partida;
     }
     
+    
      //metodo para duplicar pruebas en la pagina 3
     public static function duplicaPrueba(){
         $resultadomax = self::obtieneMaxIdPruebas();
@@ -172,6 +281,7 @@ public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
         return $pruebas;
     }
     
+    
     //metodo para encontrar máximo Id pruebas en la pagina 3
     public static function obtieneMaxIdEquipos(){
         $sql = "SELECT MAX(id) FROM equipos";
@@ -182,6 +292,7 @@ public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
         
         return $row;
     }
+    
     
     //metodo para encontrar máximo Id partidas en la pagina 4
     public static function obtieneMaxIdPartidas(){
@@ -194,6 +305,7 @@ public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
         return $maxIdPartidas;
     }
     
+    
     //metodo para encontrar máximo Id pruebas en la pagina 5
     public static function obtieneMaxIdJuegos(){
         $sql = "SELECT MAX(id) FROM juegos";
@@ -204,8 +316,6 @@ public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
         
         return $row;
     }
-    
-    
     
     
     //Para chequear nombre nueva partida no existe Pag4
@@ -236,9 +346,7 @@ public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
     return $codigoaleatorio;
 } 
     
-    
-    
-        //metodo para encontrar máximo Id pruebas en la pagina 3
+    //metodo para encontrar máximo Id pruebas en la pagina 3
     public static function obtieneMaxIdPruebas(){
         $sql = "SELECT MAX(id) FROM pruebas";
         $resulmax = self::ejecutaConsulta($sql);
@@ -249,6 +357,7 @@ public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
         return $row;
     }
     
+ 
     public static function obtieneArrayPrueba(){
         $sql  = "SELECT id,nombre, descExtendida, descBreve, tipo, dificultad, url, ayudaFinal, username FROM pruebas ";
         if(isset($_POST['pru_id'])){
@@ -265,7 +374,8 @@ public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
         return $arraypruebadupli;
     }
     
-      //metodo para mostrar pruebas en la pagina 3
+    
+    //metodo para mostrar pruebas en la pagina 3
     public static function obtienePruebas3(){
         $sql = "SELECT pruebas.id, pruebas.nombre, pruebas.descBreve, pruebas.tipo, pruebas.username";
         $sql.=" FROM pruebas";
@@ -287,7 +397,7 @@ public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
     }
  
     
-        //metodo para mostrar pruebas en la pagina 3
+    //metodo para mostrar pruebas en la pagina 3
     public static function obtienePruebas(){
         $sql = "SELECT pruebas.id, pruebas.nombre, pruebas.descBreve, pruebas.tipo, pruebas.username";
         $sql.=" FROM pruebas ";
@@ -309,7 +419,7 @@ public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
         return $pruebas;
     }
  
-    // Añadimos función para obtener los datos de Partida para Página4
+
     // Añadimos función para obtener los datos de Partida para Página4
     public static function obtienePartida4($id_partida) {
         $sql = "SELECT nombre, duracion FROM partidas  WHERE id = '".$id_partida."'";
@@ -327,8 +437,7 @@ public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
         return $partida4;
     }
     
-    
-    // Añadimos función para obtener los datos de Partida para Página4
+
     // Añadimos función para obtener los datos de Partida para Página4
     public static function obtienePartida($id_partida) {
         $sql = "SELECT juegos.id as id_juego, juegos.nombre as nombre_juego, partidas.duracion, equipos.id as id_equipo, equipos.nombre as nombre_equipo, equipos.codigo, partidas.id as id_partida, partidas.nombre as nombre_partida
@@ -347,19 +456,6 @@ public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
     }
     
     
-    public static function verificaCliente($nombre, $contrasenya) {
-        $sql = "SELECT username FROM usuarios ";
-        $sql .= "WHERE username='$nombre' ";
-        $sql .= "AND contrasenya='" . ($contrasenya) . "';";
-        $resultado = self::ejecutaConsulta($sql);
-        $verificado = false;
-
-        if(isset($resultado)) {
-            $fila = $resultado->fetch();
-            if($fila !== false) $verificado=true;
-        }
-        return $verificado;
-    }
     //metodo para sacar las estadisticas en la pantalla 7
     public static function obtieneEstadistica($id){
         $sql = "SELECT DISTINCT equipos.nombre as nombreEquipo, partidas.id as id, partidas.fechaInicio as fechaInicio, partidas.duracion as duracion, pruebas.nombre as nombrePrueba, equipos.tiempo as tiempoResolucion, resoluciones.intentos as intentos";
@@ -380,6 +476,7 @@ public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
             return $estadisticas;    
         }
 
+        
     public static function muestraPartida($idJuego){
         $sql = "SELECT id, nombre, fechaCreacion, duracion, fechaInicio, idJuego, username from partidas";
         $sql.=" WHERE idJuego='" . $idJuego . "'";
@@ -399,45 +496,7 @@ public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
         return $partidas;    
     }
     
-    // Método para mostrar partidas en la pantalla 2
-    public static function muestraPartidas($i){
-        $sql = "SELECT id, nombre, fechaCreacion, duracion, fechaInicio, idJuego, username, finalizada FROM partidas WHERE idjuego='".$i."'";
-        $resultado = self::ejecutaConsulta($sql);
-        $partidas = array();
 
-	if($resultado) {
-            // Añadimos un elemento por cada producto obtenido
-            $row = $resultado->fetch();
-            while ($row != null) {
-                $partidas[] = new Partida($row);
-                $row = $resultado->fetch();
-            }
-	}
-        
-        return $partidas;      
-    }
-    
-    // Método para obtener el número de equipos que han jugado una partida
-    public static function obtieneEquipos($idjuego) {
-        $sql = "SELECT partidas.id, count(equipos.id) as 'num_equipospartida', ";
-        $sql .= "partidas.nombre, partidas.fechaCreacion, partidas.duracion, partidas.fechaInicio, partidas.idJuego, partidas.username, partidas.finalizada ";
-        $sql .= " FROM partidas LEFT JOIN equipos";
-        $sql .=" ON partidas.id = equipos.idPartida";
-        $sql .=" WHERE partidas.idJuego='".$idjuego."' GROUP BY partidas.id";
-        $resultado = self::ejecutaConsulta($sql);
-
-	if($resultado) {
-            $row = $resultado->fetch();
-            while ($row != null) {
-                $num_equipos[] = new Partida($row);
-                $row = $resultado->fetch();
-            }
-	}
-        
-        return $num_equipos;
-    }
-    
-    
     public static function obtieneEquiposPag4($idpartida) {
         $sql = "SELECT nombre, codigo  FROM equipos WHERE idPartida='" .$idpartida."'";
         $resultado = self::ejecutaConsulta ($sql);  
@@ -454,29 +513,8 @@ public static function creaPista($idPrueba, $id, $texto, $tiempo, $intentos){
         return $equipos4;
     }
     
-    protected static function insertaRegistro($sql) {
-        $opc = array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8");
-        $dsn = "mysql:host=localhost;dbname=CrimeBook";
-        $usuario = 'ivantapia01';
-        $contrasena = '1234abcd';
-        $dwes = new PDO($dsn, $usuario, $contrasena, $opc);
-        $resultado = true;
-        $dwes->beginTransaction();         
-     
-        if ($dwes->exec($sql) != true) $resultado = false;
-        if ($resultado == true) {
-            $dwes->commit();           
-        }
-        else {
-            $dwes->rollback();            
-        } 
-
-        return $resultado;   
-
-    }
     
-    
-public static function obtenerJuego($codigojuego) {
+    public static function obtenerJuego($codigojuego) {
         $sql = "SELECT *  FROM juegos";
         $sql .= " WHERE id=$codigojuego";
         $resultado = self::ejecutaConsulta ($sql);
@@ -534,7 +572,6 @@ public static function obtenerJuego($codigojuego) {
     }
 
 
-
     public static function insertarJuego($juego) {      
         
         $sql = "INSERT INTO juegos (id, nombre, descExtendida, descBreve, fechaCreacion, username)";
@@ -547,7 +584,7 @@ public static function obtenerJuego($codigojuego) {
     }
 
 
-     public static function actualizaJuego($juego) {        
+    public static function actualizaJuego($juego) {        
         
         $sql = "UPDATE juegos SET nombre='".$juego->getnombre()."', ";
         $sql .= "descBreve='".$juego->getdescBreve()."', ";
@@ -558,7 +595,8 @@ public static function obtenerJuego($codigojuego) {
         return;   
     }  
 
-        public static function insertarPertenencias($codigojuego, $codigoprueba) {        
+    
+    public static function insertarPertenencias($codigojuego, $codigoprueba) {        
         
         $sql = " INSERT INTO pertenencias (idJuego, idPrueba)";
         $sql .= " VALUES ('".$codigojuego."','".$codigoprueba."')";      
@@ -568,6 +606,7 @@ public static function obtenerJuego($codigojuego) {
 
     } 
 
+    
     public static function eliminarPertenencias($codigojuego, $codigoprueba) {        
        
         $sql = " DELETE FROM pertenencias";
@@ -579,8 +618,6 @@ public static function obtenerJuego($codigojuego) {
     }
 
 
-       
-
     public static function eliminarPertencias($codigojuego, $codigoprueba) {        
        
         $sql .= "DELETE FROM table pertencias";
@@ -590,6 +627,7 @@ public static function obtenerJuego($codigojuego) {
         return;   
 
     }  
+    
     
     public static function insertaRespuesta($codigoprueba, $respuesta,$ultimaRespuesta) {        
         
@@ -601,13 +639,13 @@ public static function obtenerJuego($codigojuego) {
 
     }   
 
+    
     public static function recogeUltimoJuego() {
             $resultadomax = self::obtieneMaxIdJuegos();
             return $resultadomax;
     }
      
 
-    
     public static function obtenerPrueba($idpru) {
         $sql = "SELECT id, nombre, URL, descBreve, descExtendida, tipo  FROM pruebas";
         $sql .= " WHERE id=$idpru";
@@ -651,7 +689,7 @@ public static function obtenerJuego($codigojuego) {
     }  
 
    
-     public static function listadoPistas($codigoprueba) {
+    public static function listadoPistas($codigoprueba) {
         $sql = "SELECT texto FROM pistas"; 
         $sql .= " WHERE id ='" . $codigopista . "'";
         $sql .= "AND id=idPrueba";
@@ -692,7 +730,7 @@ public static function obtenerJuego($codigojuego) {
     }
 
 
-     public static function actualizaPrueba($codigoprueba) {        
+    public static function actualizaPrueba($codigoprueba) {        
         
         $sql = "UPDATE pruebas SET nombre='$prueba->getnombreprueba()' ";
         $sql .= " URL='getURL()', descBreve='getdescripcionbreve()' ";
@@ -705,64 +743,6 @@ public static function obtenerJuego($codigojuego) {
   
  
     
-        
-       
-    // Método para eliminar juegos. Elimina también las partidas de ese juego y las pertenencias
-    public static function eliminaJuegos($codigo){
-        foreach ($codigo as $juego) {
-            $sql = "DELETE FROM juegos ";
-            $sql.=" WHERE juegos.id='" . $juego . "'";
-            $resultado = self::ejecutaConsulta ($sql);
-        
-            if(isset($resultado)) {
-                $row = $resultado->fetch();
-            }
-        }
-        
-        return $row;
-    }
-    
-        
-    //metodo para eliminar una partida finalizada en página2
-    public static function eliminaPartida($codigo){
-        $sql = "DELETE FROM partidas ";
-        $sql.=" WHERE partidas.id='" . $codigo . "'";
-        $sql.=" AND partidas.finalizada='S'";
-        $resultado = self::ejecutaConsulta ($sql);
-        
-        if(isset($resultado)) {
-            $row = $resultado->fetch();
-        }
-    }
-    
-       
+     
     
 }
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
-?>
