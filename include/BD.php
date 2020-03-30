@@ -138,9 +138,6 @@ class BD {
         $sql.=" AND partidas.finalizada='S'";
         $resultado = self::ejecutaConsulta ($sql);
         
-        if(isset($resultado)) {
-            $row = $resultado->fetch();
-        }
     }
     
     // Método para obtener el número de equipos que han jugado una partida
